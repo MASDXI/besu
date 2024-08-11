@@ -29,7 +29,7 @@ public class StatefulPrecompiledContract extends AbstractPrecompiledContract {
     @Override
     public long gasRequirement(final Bytes input) {
         // @TODO change reasonable gas calculate.
-        return 10_000L; // Define gas cost
+        return 1000L; // Define gas cost
     }
 
     @Nonnull
@@ -42,14 +42,15 @@ public class StatefulPrecompiledContract extends AbstractPrecompiledContract {
         } else { 
             final WorldUpdater worldUpdater = messageFrame.getWorldUpdater();
             final MutableAccount mutableAccount = worldUpdater.getOrCreate(Address.fromHexString("0x0100000000000000000000000000000000000001"));
-            // mutableAccount.setStorageValue(UInt256.ZERO, UInt256.fromBytes(input));
+            mutableAccount.setStorageValue(UInt256.ZERO, UInt256.valueOf(1337));
             // final Bytes32 storedValue = mutableAccount.getStorageValue(UInt256.ZERO);
             
             // ignore input, just increment balance with fixed value 1000 wei each call.
-            mutableAccount.incrementBalance(Wei.of(1000));
+            mutableAccount.incrementBalance(Wei.of(1337));
 
             worldUpdater.commit();
-            LOG.info("State updated successfully: {}", mutableAccount.getBalance());
+            messageFrame.storageWasUpdated(UInt256.ZERO, UInt256.valueOf(1337));
+            LOG.info("State updated balance successfully: {}", mutableAccount.getBalance());
             return PrecompileContractResult.success(input.copy());
         }
     }

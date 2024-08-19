@@ -26,13 +26,10 @@ public class StatefulPrecompiledContract extends AbstractPrecompiledContract {
     
     private static final Logger LOG = LoggerFactory.getLogger(StatefulPrecompiledContract.class);
 
-    private static final UInt256 STORAGE_SLOT_0 = UInt256.ZERO;
+    private static final UInt256 STORAGE_VALUE = UInt256.ZERO;
     private static final Bytes GET_SIGNATURE = Hash.keccak256(Bytes.of("get()".getBytes(UTF_8))).slice(0, 4);
     private static final Bytes SET_SIGNATURE = Hash.keccak256(Bytes.of("set(uint256)".getBytes(UTF_8))).slice(0, 4);
-    private static final Address CONTRACT_ADDRESS = Address.fromHexString("0x0100000000000000000000000000000000000001");
-
-    private static final Bytes ZERO_VALUE =
-      Bytes.fromHexString("0x0000000000000000000000000000000000000000000000000000000000000000");
+    private static final Address STORAGE_CONTRACT_ADDRESS = Address.fromHexString("0x0100000000000000000000000000000000000001");
 
     public StatefulPrecompiledContract(final GasCalculator gasCalculator) {
         super("StatefulPrecompiledContract", gasCalculator);
@@ -57,25 +54,18 @@ public class StatefulPrecompiledContract extends AbstractPrecompiledContract {
             final Bytes function = input.slice(0, 4);
             final Bytes payload = input.slice(4);
             final WorldUpdater worldUpdater = messageFrame.getWorldUpdater();
-            final MutableAccount mutableAccount = worldUpdater.getOrCreate(CONTRACT_ADDRESS);
+            final MutableAccount mutableAccount = worldUpdater.getOrCreate(STORAGE_CONTRACT_ADDRESS);
+            final Bytes state = mutableAccount.getStorageValue(STORAGE_VALUE);
             if (function.equals(GET_SIGNATURE)) {
-                // LOG.info("LOG");
-                return PrecompileContractResult.success(mutableAccount.getStorageValue(STORAGE_SLOT_0));
+                LOG.info("Latest state is {}", state);
+                return PrecompileContractResult.success(state);
             } else if (function.equals(SET_SIGNATURE)) {
                 final UInt256 payloadAsUInt256 = UInt256.fromBytes(Bytes32.leftPad(payload));
-                mutableAccount.setStorageValue(UInt256.ZERO, payloadAsUInt256);
-
-                // @TODO should fix now use tricky to save state.
-                if (mutableAccount.getBalance().compareTo(Wei.ZERO) == 0) {
-                    mutableAccount.incrementBalance(Wei.of(1));
-                } else {
-                    mutableAccount.decrementBalance(Wei.of(1));
-                }
-
-                worldUpdater.commit();
-                messageFrame.storageWasUpdated(UInt256.ZERO, payloadAsUInt256);
-                // LOG.info("LOG");
-                return PrecompileContractResult.success(ZERO_VALUE);
+                // NOTE: you need to initialized the balance of address to 0x1 in genesis.json first.
+                mutableAccount.setStorageValue(STORAGE_VALUE, payloadAsUInt256);
+                // messageFrame.storageWasUpdated(STORAGE_VALUE, payloadAsUInt256);
+                LOG.info("State update from {} to {}",state, payloadAsUInt256);
+                return PrecompileContractResult.success(Bytes.EMPTY);
             } else {
                 LOG.info("Failed interface not found");
                 return PrecompileContractResult.halt(null, Optional.of(ExceptionalHaltReason.PRECOMPILE_ERROR));

@@ -1,5 +1,9 @@
 package org.hyperledger.besu.evm.precompile;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+
+import org.hyperledger.besu.crypto.Hash;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.evm.account.Account;
@@ -22,36 +26,49 @@ public class StatefulPrecompiledContract extends AbstractPrecompiledContract {
     
     private static final Logger LOG = LoggerFactory.getLogger(StatefulPrecompiledContract.class);
 
+    private static final UInt256 STORAGE_SLOT_0 = UInt256.ZERO;
+    private static final Bytes GET_SIGNATURE = Hash.keccak256(Bytes.of("get()".getBytes(UTF_8))).slice(0, 4);
+    private static final Bytes SET_SIGNATURE = Hash.keccak256(Bytes.of("set(uint256)".getBytes(UTF_8))).slice(0, 4);
+    private static final Address CONTRACT_ADDRESS = Address.fromHexString("0x0100000000000000000000000000000000000001");
+
     public StatefulPrecompiledContract(final GasCalculator gasCalculator) {
         super("StatefulPrecompiledContract", gasCalculator);
     }
 
     @Override
     public long gasRequirement(final Bytes input) {
-        // @TODO change reasonable gas calculate.
-        return 1000L; // Define gas cost
+        final Bytes function = input.slice(0, 4);
+        if (function.equals(GET_SIGNATURE)) {
+            return 1000;
+        } else if (function.equals(SET_SIGNATURE)) {
+            return 2000;
+        } else {
+            return 0;
+        }
     }
 
     @Nonnull
     @Override
     public PrecompileContractResult computePrecompile(final Bytes input, @Nonnull final MessageFrame messageFrame) {
-        // @TODO try catch style.
-        if (input.isEmpty()) {
-            return PrecompileContractResult.halt(
-          null, Optional.of(ExceptionalHaltReason.PRECOMPILE_ERROR));
-        } else { 
+            final Bytes function = input.slice(0, 4);
+            final Bytes payload = input.slice(4);
             final WorldUpdater worldUpdater = messageFrame.getWorldUpdater();
-            final MutableAccount mutableAccount = worldUpdater.getOrCreate(Address.fromHexString("0x0100000000000000000000000000000000000001"));
-            mutableAccount.setStorageValue(UInt256.ZERO, UInt256.valueOf(1337));
-            // final Bytes32 storedValue = mutableAccount.getStorageValue(UInt256.ZERO);
-            
-            // ignore input, just increment balance with fixed value 1000 wei each call.
-            mutableAccount.incrementBalance(Wei.of(1337));
-
-            worldUpdater.commit();
-            messageFrame.storageWasUpdated(UInt256.ZERO, UInt256.valueOf(1337));
-            LOG.info("State updated balance successfully: {}", mutableAccount.getBalance());
-            return PrecompileContractResult.success(input.copy());
-        }
+            final MutableAccount mutableAccount = worldUpdater.getOrCreate(CONTRACT_ADDRESS);
+            if (function.equals(GET_SIGNATURE)) {
+                return PrecompileContractResult.success(mutableAccount.getStorageValue(STORAGE_SLOT_0));
+            } else if (function.equals(SET_SIGNATURE)) {
+                final UInt256 payloadAsUInt256 = UInt256.fromBytes(Bytes32.leftPad(payload));
+                mutableAccount.setStorageValue(STORAGE_SLOT_0, payloadAsUInt256);
+                mutableAccount.setStorageValue(STORAGE_SLOT_0, payloadAsUInt256);
+                mutableAccount.incrementBalance(Wei.of(0));
+                worldUpdater.commit();
+                messageFrame.storageWasUpdated(STORAGE_SLOT_0, payloadAsUInt256);
+                LOG.info("State updated to {}", payloadAsUInt256);
+                // Do not return anything for the `set` operation
+                return PrecompileContractResult.success(input.copy());
+            } else {
+                LOG.info("Failed interface not found");
+                return PrecompileContractResult.halt(null, Optional.of(ExceptionalHaltReason.PRECOMPILE_ERROR));
+            }
     }
 }

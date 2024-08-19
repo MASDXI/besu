@@ -31,6 +31,9 @@ public class StatefulPrecompiledContract extends AbstractPrecompiledContract {
     private static final Bytes SET_SIGNATURE = Hash.keccak256(Bytes.of("set(uint256)".getBytes(UTF_8))).slice(0, 4);
     private static final Address CONTRACT_ADDRESS = Address.fromHexString("0x0100000000000000000000000000000000000001");
 
+    private static final Bytes ZERO_VALUE =
+      Bytes.fromHexString("0x0000000000000000000000000000000000000000000000000000000000000000");
+
     public StatefulPrecompiledContract(final GasCalculator gasCalculator) {
         super("StatefulPrecompiledContract", gasCalculator);
     }
@@ -38,37 +41,45 @@ public class StatefulPrecompiledContract extends AbstractPrecompiledContract {
     @Override
     public long gasRequirement(final Bytes input) {
         final Bytes function = input.slice(0, 4);
-        if (function.equals(GET_SIGNATURE)) {
-            return 1000;
-        } else if (function.equals(SET_SIGNATURE)) {
+        if (function.equals(SET_SIGNATURE)) {
             return 2000;
         } else {
-            return 0;
+            return 1000;
         }
     }
 
     @Nonnull
     @Override
     public PrecompileContractResult computePrecompile(final Bytes input, @Nonnull final MessageFrame messageFrame) {
+        if (input.isEmpty()) {
+            return PrecompileContractResult.halt(null, Optional.of(ExceptionalHaltReason.PRECOMPILE_ERROR));
+        } else {
             final Bytes function = input.slice(0, 4);
             final Bytes payload = input.slice(4);
             final WorldUpdater worldUpdater = messageFrame.getWorldUpdater();
             final MutableAccount mutableAccount = worldUpdater.getOrCreate(CONTRACT_ADDRESS);
             if (function.equals(GET_SIGNATURE)) {
+                // LOG.info("LOG");
                 return PrecompileContractResult.success(mutableAccount.getStorageValue(STORAGE_SLOT_0));
             } else if (function.equals(SET_SIGNATURE)) {
                 final UInt256 payloadAsUInt256 = UInt256.fromBytes(Bytes32.leftPad(payload));
-                mutableAccount.setStorageValue(STORAGE_SLOT_0, payloadAsUInt256);
-                mutableAccount.setStorageValue(STORAGE_SLOT_0, payloadAsUInt256);
-                mutableAccount.incrementBalance(Wei.of(0));
+                mutableAccount.setStorageValue(UInt256.ZERO, payloadAsUInt256);
+
+                // @TODO should fix now use tricky to save state.
+                if (mutableAccount.getBalance().compareTo(Wei.ZERO) == 0) {
+                    mutableAccount.incrementBalance(Wei.of(1));
+                } else {
+                    mutableAccount.decrementBalance(Wei.of(1));
+                }
+
                 worldUpdater.commit();
-                messageFrame.storageWasUpdated(STORAGE_SLOT_0, payloadAsUInt256);
-                LOG.info("State updated to {}", payloadAsUInt256);
-                // Do not return anything for the `set` operation
-                return PrecompileContractResult.success(input.copy());
+                messageFrame.storageWasUpdated(UInt256.ZERO, payloadAsUInt256);
+                // LOG.info("LOG");
+                return PrecompileContractResult.success(ZERO_VALUE);
             } else {
                 LOG.info("Failed interface not found");
                 return PrecompileContractResult.halt(null, Optional.of(ExceptionalHaltReason.PRECOMPILE_ERROR));
             }
+        }
     }
 }

@@ -26,7 +26,7 @@ public class StatefulPrecompiledContract extends AbstractPrecompiledContract {
     
     private static final Logger LOG = LoggerFactory.getLogger(StatefulPrecompiledContract.class);
 
-    private static final UInt256 STORAGE_VALUE = UInt256.ZERO;
+    private static final UInt256 STORAGE_VALUE = UInt256.ZERO; // declaration storage slot zero for store value;
     private static final Bytes GET_SIGNATURE = Hash.keccak256(Bytes.of("get()".getBytes(UTF_8))).slice(0, 4);
     private static final Bytes SET_SIGNATURE = Hash.keccak256(Bytes.of("set(uint256)".getBytes(UTF_8))).slice(0, 4);
     private static final Address STORAGE_CONTRACT_ADDRESS = Address.fromHexString("0x0100000000000000000000000000000000000001");
@@ -51,7 +51,9 @@ public class StatefulPrecompiledContract extends AbstractPrecompiledContract {
         if (input.isEmpty()) {
             return PrecompileContractResult.halt(null, Optional.of(ExceptionalHaltReason.PRECOMPILE_ERROR));
         } else {
+            // function selector.
             final Bytes function = input.slice(0, 4);
+            // slicing for payload data.
             final Bytes payload = input.slice(4);
             final WorldUpdater worldUpdater = messageFrame.getWorldUpdater();
             final MutableAccount mutableAccount = worldUpdater.getOrCreate(STORAGE_CONTRACT_ADDRESS);
@@ -63,8 +65,7 @@ public class StatefulPrecompiledContract extends AbstractPrecompiledContract {
                 final UInt256 payloadAsUInt256 = UInt256.fromBytes(Bytes32.leftPad(payload));
                 // NOTE: you need to initialized the balance of address to 0x1 in genesis.json first.
                 mutableAccount.setStorageValue(STORAGE_VALUE, payloadAsUInt256);
-                // messageFrame.storageWasUpdated(STORAGE_VALUE, payloadAsUInt256);
-                LOG.info("State update from {} to {}",state, payloadAsUInt256);
+                LOG.info("State update from {} to {}", state, payloadAsUInt256);
                 return PrecompileContractResult.success(Bytes.EMPTY);
             } else {
                 LOG.info("Failed interface not found");

@@ -39,9 +39,6 @@ public class StatefulSortedCircularLinkedListPrecompiledContract extends Abstrac
     
     private static final Logger LOG = LoggerFactory.getLogger(StatefulSortedCircularLinkedListPrecompiledContract.class);
     
-    /** PRECOMPILED CONTRACT ADDRESS */
-    private static final Address STORAGE_CONTRACT_ADDRESS = Address.fromHexString("0x0100000000000000000000000000000000000002");
-
     // TODO Define MAX_SIZE for safety, 
     // we should not allowing iterate the list and take too long.
     // best case 100ms 1/10 of 1 sec block time.
@@ -89,8 +86,7 @@ public class StatefulSortedCircularLinkedListPrecompiledContract extends Abstrac
     }
 
     //** STATIC CALL FUNCTION */
-    @Nonnull
-    private Bytes contains(final MutableAccount address, final Bytes payload, @Nonnull final MessageFrame messageFrame) {
+    private Bytes contains(final MutableAccount address, final Bytes payload) {
         // final Uint256 pointer = payload; // storage pointer
         // final Uint256 index = payload; //  given index
         // final Uint256 previousNode = calculateStorageSlot(messageFrame.sender, pointer, index, PREVIOUS);
@@ -100,53 +96,47 @@ public class StatefulSortedCircularLinkedListPrecompiledContract extends Abstrac
         return address.getStorageValue(slot);
     }
 
-    @Nonnull
-    private Bytes head(final MutableAccount address, @Nonnull final MessageFrame messageFrame) {
+    private Bytes head(final MutableAccount address) {
         // final Uint256 pointer = payload; // storage pointer
         // final Uint256 slot = calculateStorageSlot(messageFrame.sender, pointer, SENTINEL, NEXT);
         return address.getStorageValue(slot);
     }
 
-    @Nonnull
-    private Bytes middle(final MutableAccount address, @Nonnull final MessageFrame messageFrame) {
+    private Bytes middle(final MutableAccount address) {
         // final Uint256 slot = calculateStorageSlot(messageFrame.sender, pointer, Uint256.valueOf(0)); // get size first
         // 
         // perform search traversal.
         return PrecompileContractResult.success(address.getStorageValue(slot));
     }
 
-    @Nonnull
-    private Bytes next(final MutableAccount address, final Bytes payload, @Nonnull final MessageFrame messageFrame) {
+    private Bytes next(final MutableAccount address, final Bytes payload) {
         // final Uint256 pointer = payload; // storage pointer
         // final Uint256 index = payload; //  given index
-        // final Uint256 slot = calculateStorageSlot(messageFrame.sender, pointer, index, NEXT);
+        // final Uint256 slot = calculateStorageSlot(messageFrame.address, pointer, index, NEXT);
         return address.getStorageValue(slot);
     }
 
-    @Nonnull
-    private Bytes previous(final MutableAccount address, final Bytes payload, @Nonnull final MessageFrame messageFrame) {
+    private Bytes previous(final MutableAccount address, final Bytes payload) {
         // final Uint256 pointer = payload; // storage pointer
         // final Uint256 index = payload; //  given index
-        // final Uint256 slot = calculateStorageSlot(messageFrame.sender, pointer, index, PERVIOUS);
+        // final Uint256 slot = calculateStorageSlot(messageFrame.address, pointer, index, PERVIOUS);
         return address.getStorageValue(slot);
     }
 
-    @Nonnull
-    private Bytes size(final MutableAccount address, @Nonnull final MessageFrame messageFrame) {
+    private Bytes size(final MutableAccount address) {
         // final Uint256 pointer = payload; // storage pointer
-        // final Uint256 slot = calculateStorageSlot(messageFrame.sender, pointer, Uint256.valueOf(0));
+        // final Uint256 slot = calculateStorageSlot(messageFrame.address, pointer, Uint256.valueOf(0));
         return address.getStorageValue(slot);
     }
 
-    @Nonnull
-    private Bytes tail(final MutableAccount address, @Nonnull final MessageFrame messageFrame) {
+    private Bytes tail(final MutableAccount address) {
         // final Uint256 pointer = payload; // storage pointer
-        // final Uint256 slot = calculateStorageSlot(messageFrame.sender, pointer, SENTINEL, PREVIOUS);
+        // final Uint256 slot = calculateStorageSlot(address, pointer, SENTINEL, PREVIOUS);
         return address.getStorageValue(slot);
     }
 
     //** CALL FUNCTION */
-    private Bytes insert(final MutableAccount address, final Bytes payload, @Nonnull final MessageFrame messageFrame) {
+    private Bytes insert(final MutableAccount address, final Bytes payload) {
         final boolean exist = contain(address, payload, messageFrame);
         final Uint256 s = size(address, payload, messageFrame);
         if exist {
@@ -160,30 +150,30 @@ public class StatefulSortedCircularLinkedListPrecompiledContract extends Abstrac
             final Uint256 t = tail(address, payload, messageFrame);
             if (s == SENTINEL) {
                 // insert first node
-                final Uint256 previousSentinel = calculateStorageSlot(messageFrame.sender, pointer, SENTINEL, PREVIOUS);
-                final Uint256 nextSentinel = calculateStorageSlot(messageFrame.sender, pointer, SENTINEL, NEXT);
-                final Uint256 previousNode = calculateStorageSlot(messageFrame.sender, pointer, index, PREVIOUS);
-                final Uint256 nextNode = calculateStorageSlot(messageFrame.sender, pointer, index, NEXT);
+                final Uint256 previousSentinel = calculateStorageSlot(address, pointer, SENTINEL, PREVIOUS);
+                final Uint256 nextSentinel = calculateStorageSlot(address, pointer, SENTINEL, NEXT);
+                final Uint256 previousNode = calculateStorageSlot(address, pointer, index, PREVIOUS);
+                final Uint256 nextNode = calculateStorageSlot(address, pointer, index, NEXT);
                 address.setStorageValue(previousSentinel, index);
                 address.setStorageVaule(nextSentinel, index);
                 address.setStorageValue(previousNode, SENTINEL);
                 address.setStorageVaule(nextNode, SENTINEL);
             } else if (index < h) {
                 // insert head
-                final Uint256 nextSentinel = calculateStorageSlot(messageFrame.sender, pointer, SENTINEL, NEXT);
-                final Uint256 head = calculateStorageSlot(messageFrame.sender, pointer, SENTINEL, NEXT);
-                final Uint256 previousNode = calculateStorageSlot(messageFrame.sender, pointer, index, PREVIOUS);
-                final Uint256 nextNode = calculateStorageSlot(messageFrame.sender, pointer, index, PREVIOUS);
+                final Uint256 nextSentinel = calculateStorageSlot(address, pointer, SENTINEL, NEXT);
+                final Uint256 head = calculateStorageSlot(address, pointer, SENTINEL, NEXT);
+                final Uint256 previousNode = calculateStorageSlot(address, pointer, index, PREVIOUS);
+                final Uint256 nextNode = calculateStorageSlot(address, pointer, index, PREVIOUS);
                 address.setStorageValue(nextSentinel, index);
                 address.setStorageVaule(head, index);
                 address.setStorageValue(previousNode, SENTINEL);
                 address.setStorageVaule(nextNode, h);
             } else if (index > t) {
                 // insert tail
-                final Uint256 previousSentinel = calculateStorageSlot(messageFrame.sender, pointer, SENTINEL, NEXT);
-                final Uint256 tail = calculateStorageSlot(messageFrame.sender, pointer, SENTINEL, NEXT);
-                final Uint256 previousNode = calculateStorageSlot(messageFrame.sender, pointer, index, PREVIOUS);
-                final Uint256 nextNode = calculateStorageSlot(messageFrame.sender, pointer, index, PREVIOUS);
+                final Uint256 previousSentinel = calculateStorageSlot(address, pointer, SENTINEL, NEXT);
+                final Uint256 tail = calculateStorageSlot(address, pointer, SENTINEL, NEXT);
+                final Uint256 previousNode = calculateStorageSlot(address, pointer, index, PREVIOUS);
+                final Uint256 nextNode = calculateStorageSlot(address, pointer, index, PREVIOUS);
                 address.setStorageValue(previousSentinel, index);
                 address.setStorageVaule(tail, index);
                 address.setStorageValue(previousNode, t);
@@ -202,7 +192,7 @@ public class StatefulSortedCircularLinkedListPrecompiledContract extends Abstrac
                         tmpCurr = previous(address, tmpCurr, massageFrame);
                     }
                 }
-                Uint256 tmpPrev = calculateStorageSlot(messageFrame.sender, pointer, tmpCurr, NEXT);
+                Uint256 tmpPrev = calculateStorageSlot(address, pointer, tmpCurr, NEXT);
                 address.setStorageValue(tmpPrev, index);
                 address.setStorageVaule(tmpCurr, index);
                 address.setStorageValue(previousNode, tmpPrev);
@@ -246,59 +236,59 @@ public class StatefulSortedCircularLinkedListPrecompiledContract extends Abstrac
             // function signature selector.
             final Bytes function = input.slice(0, 4);
             final WorldUpdater worldUpdater = messageFrame.getWorldUpdater();
-            final MutableAccount precompileAccount = worldUpdater.getOrCreate(STORAGE_CONTRACT_ADDRESS);
+            final MutableAccount sender = worldUpdater.getOrCreate(messageFrame..getSenderAddress());
             if (function.equals(CONTAINS_SIGNATURE)) {
                 return PrecompileContractResult.success(
-                    contains(precompileAccount, payload, messageFrame)
+                    contains(sender, payload, messageFrame)
                     );
             } 
             else if (function.equals(HEAD_SIGNATURE)) {
                 return PrecompileContractResult.success(
-                    head(precompileAccount, payload, messageFrame)
+                    head(sender, payload, messageFrame)
                     );
             }
             else if (function.equals(LIST_SIGNATURE)) {
                 return PrecompileContractResult.success(
-                    list(precompileAccount, payload, messageFrame)
+                    list(sender, payload, messageFrame)
                     );
             }
             else if (function.equals(MIDDLE_SIGNATURE)) {
                 return PrecompileContractResult.success(
-                    middle(precompileAccount, payload, messageFrame)
+                    middle(sender, payload, messageFrame)
                     );
             }
             else if (function.equals(NEXT_SIGNATURE)) {
                 return PrecompileContractResult.success(
-                    next(precompileAccount, payload, messageFrame)
+                    next(sender, payload, messageFrame)
                     );
             }
             else if (function.equals(PREVIOUS_SIGNATURE)) {
                 return PrecompileContractResult.success(
-                    previous(precompileAccount, payload, messageFrame));
+                    previous(sender, payload, messageFrame));
             }
             else if (function.equals(SIZE_SIGNATURE)) {
                 return PrecompileContractResult.success(
-                    size(precompileAccount, payload, messageFrame)
+                    size(sender, payload, messageFrame)
                     );
             }
             else if (function.equals(TAIL_SIGNATURE)) {
                 return PrecompileContractResult.success(
-                    tail(precompileAccount, payload, messageFrame)
+                    tail(sender, payload, messageFrame)
                     );
             }
             else if (function.equals(REMOVE_SIGNATURE)) {
                 return PrecompileContractResult.success(
-                    remove(precompileAccount, payload, messageFrame)
+                    remove(sender, payload, messageFrame)
                     );
             }
             else if (function.equals(INSERT_SIGNATURE)) {
                 return PrecompileContractResult.success(
-                    insert(precompileAccount, payload, messageFrame)
+                    insert(sender, payload, messageFrame)
                     );
             }
             else if (function.equals(SHRINK_SIGNATURE)) {
                 return PrecompileContractResult.success(
-                    shrink(precompileAccount, payload, messageFrame)
+                    shrink(sender, payload, messageFrame)
                     );
             } else {
                 LOG.info("Failed interface not found");
